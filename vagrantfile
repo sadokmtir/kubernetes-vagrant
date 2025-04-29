@@ -1,0 +1,116 @@
+Vagrant.configure("2") do |config|
+  BOX_IMAGE = "generic/ubuntu2204"
+  PRIVATE_NETWORK = "192.168.123"
+
+  config.vm.box = BOX_IMAGE
+  
+  # Global libvirt configuration
+  config.vm.provider :libvirt do |libvirt|
+    # Disable the management network
+    libvirt.mgmt_attach = false
+  end
+
+
+  # Node 1 - 2 CPU, 2 GB RAM
+  config.vm.define "node1" do |node|
+    node.vm.hostname = "node1"
+    
+    # Configure a single private network with all required features
+    node.vm.network :private_network, 
+      ip: "#{PRIVATE_NETWORK}.11", 
+      libvirt__network_name: "vagrant-shared",
+      libvirt__dhcp_enabled: true,
+      libvirt__forward_mode: "nat",
+      libvirt__domain_name: "vagrant.local",
+      libvirt__network_options: {
+        autostart: true,
+        dns: { 
+          enable: 'yes',
+          forwarders: [{ addr: '8.8.8.8' }, { addr: '8.8.4.4' }]
+        }
+      }
+
+    node.vm.provider :libvirt do |libvirt|
+      libvirt.memory = 2048
+      libvirt.cpus = 2
+    end
+
+    # NFS shared folder configuration
+    node.vm.synced_folder "./shared", "/vagrant/shared", 
+      type: "nfs",
+      nfs_version: 4,
+      nfs_udp: false
+
+    # Copy a file from the host to the VM
+    node.vm.provision "file", source: "./kubeadm-config.tpl", destination: "/tmp/kubeadm-config.tpl"
+
+    # Provision script to run after the system and network are fully set up
+    node.vm.provision "shell", path: "./setup_node.sh", run: "final"
+    node.vm.provision "shell", path: "./setup_control_plane.sh", run: "final"
+
+   #Add cleanup trigger for NFS shares
+    node.trigger.before :destroy do |trigger|
+      trigger.name = "Cleanup NFS"
+      trigger.info = "Cleaning up NFS exports..."
+      trigger.run = {
+        path: "cleanup-nfs.sh",
+      }
+    end
+
+  end
+
+  # Node 2 and 3 - 1 CPU, 1 GB RAM
+  (2..2).each do |i|
+    config.vm.define "node#{i}" do |node|
+      node.vm.hostname = "node#{i}"
+      
+      # Configure a single private network with all required features
+      node.vm.network :private_network, 
+        ip: "#{PRIVATE_NETWORK}.#{10 + i}", 
+        libvirt__network_name: "vagrant-shared",
+        libvirt__dhcp_enabled: true,
+        libvirt__forward_mode: "nat",
+        libvirt__domain_name: "vagrant.local",
+        libvirt__network_options: {
+          autostart: true,
+          dns: { 
+            enable: 'yes',
+            forwarders: [{ addr: '8.8.8.8' }, { addr: '8.8.4.4' }]
+          }
+        }
+
+      node.vm.provider :libvirt do |libvirt|
+        libvirt.memory = 1024
+        libvirt.cpus = 1
+      end
+
+    # NFS shared folder configuration
+    node.vm.synced_folder "./shared", "/vagrant/shared", 
+      type: "nfs",
+      nfs_version: 4,
+      nfs_udp: false
+
+      node.vm.provision "shell", path: "./setup_node.sh", run: "final"
+      node.vm.provision "shell", path: "./node-worker-join.sh", run: "final"
+
+    end
+  end
+
+  # Provisioning script to ensure proper DNS configuration
+  config.vm.provision "shell", inline: <<-SHELL
+    # Use NetworkManager to maintain DNS settings (for Ubuntu 22.04)
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet NetworkManager; then
+      echo "Configuring NetworkManager to maintain DNS settings"
+      sudo systemctl restart NetworkManager
+    else
+      # Fallback to static DNS configuration
+      echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
+      echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+    fi
+    
+    # Test internet connectivity
+    echo "Testing internet connectivity..."
+    ping -c 2 8.8.8.8 || echo "Cannot ping 8.8.8.8"
+    ping -c 2 google.com || echo "Cannot ping google.com"
+  SHELL
+end
