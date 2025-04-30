@@ -9,10 +9,15 @@ sudo kubeadm init phase preflight --config kubeadm-config.yaml
 sudo kubeadm init --config kubeadm-config.yaml
 
 
-# Set-up kubectl
+
+#Set-up calico
+echo "Setting-up Calico"
 mkdir -p $HOME/.kube
 sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+curl https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/calico-typha.yaml -o calico.yaml
+kubectl apply -f calico.yaml
+echo "Done Setting-up Calico"
 
 
 # Run this on a control plane node
@@ -32,22 +37,3 @@ echo "Kubeadm join command generated and saved to /vagrant/shared/kubeadm_join.s
 
 # Use kubeconfig for other nodes
 sudo cp /etc/kubernetes/admin.conf /vagrant/shared/admin.conf
-
-#Set-up calico
-sleep 10
-
-
-curl https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/calico-typha.yaml -o calico.yaml
-kubectl apply -f calico.yaml
-
-
-
-
-# curl https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/custom-resources.yaml -O
-# sed -i 's|cidr: 192.168.0.0/16|cidr: 10.244.0.0/24|' custom-resources.yaml
-# kubectl create -f custom-resources.yaml
-
-
-# Add k9s helper
-wget https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb && apt install ./k9s_linux_amd64.deb && rm k9s_linux_amd64.deb
-

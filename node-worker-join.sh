@@ -12,7 +12,7 @@ done
 bash /vagrant/shared/kubeadm_join.sh
 echo "Worker Node successfully joined the cluster!"
 
-mkdir -p $HOME/.kube
+mkdir -p ~/.kube
 
 # Wait for the kubeadm join command to be ready
 while [ ! -f /vagrant/shared/admin.conf ]; do
@@ -20,5 +20,4 @@ echo "Waiting for kube config from Node 1..."
 sleep 5
 done
 
-
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+sudo cp /vagrant/shared/admin.conf /etc/kubernetes/admin.conf

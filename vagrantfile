@@ -3,13 +3,32 @@ Vagrant.configure("2") do |config|
   PRIVATE_NETWORK = "192.168.123"
 
   config.vm.box = BOX_IMAGE
-  
+
   # Global libvirt configuration
   config.vm.provider :libvirt do |libvirt|
     # Disable the management network
     libvirt.mgmt_attach = false
   end
 
+  # Create a common cache directory
+  cache_dir = "./shared-cache"
+  Dir.mkdir(cache_dir) unless Dir.exist?(cache_dir)
+  
+  # Create a shared folder for caching downloaded files
+    config.vm.synced_folder cache_dir, "/vagrant/cache",
+      type: "nfs",
+      nfs_version: 4,
+      nfs_udp: false
+
+  # Create a common config directory
+  config_dir = "./shared"
+  Dir.mkdir(config_dir) unless Dir.exist?(config_dir)
+
+ # NFS shared folder for kube configuration
+    config.vm.synced_folder config_dir, "/vagrant/shared", 
+      type: "nfs",
+      nfs_version: 4,
+      nfs_udp: false
 
   # Node 1 - 2 CPU, 2 GB RAM
   config.vm.define "node1" do |node|
@@ -35,18 +54,20 @@ Vagrant.configure("2") do |config|
       libvirt.cpus = 2
     end
 
-    # NFS shared folder configuration
-    node.vm.synced_folder "./shared", "/vagrant/shared", 
-      type: "nfs",
-      nfs_version: 4,
-      nfs_udp: false
 
     # Copy a file from the host to the VM
     node.vm.provision "file", source: "./kubeadm-config.tpl", destination: "/tmp/kubeadm-config.tpl"
+    
+    # Cache script
+    node.vm.provision "file", source: "./download-cache.sh", destination: "/tmp/download-cache.sh"
+
+    # Set-up cache
+    node.vm.provision "shell", path: "download-cache.sh"
 
     # Provision script to run after the system and network are fully set up
     node.vm.provision "shell", path: "./setup_node.sh", run: "final"
     node.vm.provision "shell", path: "./setup_control_plane.sh", run: "final"
+    node.vm.provision "shell", path: "./setup_kubectl.sh", run: "final", privileged: false
 
    #Add cleanup trigger for NFS shares
     node.trigger.before :destroy do |trigger|
@@ -59,8 +80,8 @@ Vagrant.configure("2") do |config|
 
   end
 
-  # Node 2 and 3 - 1 CPU, 1 GB RAM
-  (2..2).each do |i|
+  #Node 2 and 3 - 1 CPU, 1 GB RAM
+  (2..3).each do |i|
     config.vm.define "node#{i}" do |node|
       node.vm.hostname = "node#{i}"
       
@@ -90,8 +111,12 @@ Vagrant.configure("2") do |config|
       nfs_version: 4,
       nfs_udp: false
 
+      # Set-up cache
+      node.vm.provision "shell", path: "download-cache.sh"
+
       node.vm.provision "shell", path: "./setup_node.sh", run: "final"
       node.vm.provision "shell", path: "./node-worker-join.sh", run: "final"
+      node.vm.provision "shell", path: "./setup_kubectl.sh", run: "final", privileged: false
 
     end
   end
