@@ -1,15 +1,15 @@
 
-
+# WIP
 
 
 ## How it works:
-The Vagrantfile creates two VMs (node1 and node2) using libvirt provider.
+The Vagrantfile creates three VMs (node1, node2 and node 2) using libvirt provider.
 Both VMs share a common folder using NFS.
 Node1:
 Sets up Kubernetes dependencies
 Initializes the cluster
 Generates the join command and saves it to the shared folder
-Node2:
+Node2, Node3:
 Sets up Kubernetes dependencies
 Waits for the join command to be available in the shared folder
 Executes the join command to join the cluster
