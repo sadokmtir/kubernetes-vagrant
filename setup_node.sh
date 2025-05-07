@@ -9,7 +9,7 @@ done
 echo "Network is ready. Running the script on VM1..."
 
 
-Disable swap
+# Disable swap
 sudo swapoff -a
 sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 
@@ -22,10 +22,16 @@ EOF
 sudo sysctl --system
 
 # Verify that net.ipv4.ip_forward is set to 1 with:
-sysctl net.ipv4.ip_forward
+# sysctl net.ipv4.ip_forward
 
 # Set-up containerd
-curl -L https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-linux-amd64.tar.gz -o /tmp/containerd-2.0.4-linux-amd64.tar.gz 
+
+if [ ! -f "/tmp/containerd-2.0.4-linux-amd64.tar.gz" ]; then
+    echo "Running download cache script first..."
+    /bin/bash /tmp/download-cache.sh
+fi
+
+# curl -L https://github.com/containerd/containerd/releases/download/v2.0.4/containerd-2.0.4-linux-amd64.tar.gz -o /tmp/containerd-2.0.4-linux-amd64.tar.gz 
 sudo tar Cxzvf /usr/local /tmp/containerd-2.0.4-linux-amd64.tar.gz
 
 sudo mkdir -p /usr/local/lib/systemd/system
@@ -35,10 +41,15 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now containerd
 
 # Set-up RunC
-curl -L https://github.com/opencontainers/runc/releases/download/v1.2.6/runc.amd64 -o /tmp/runc.amd64
+# curl -L https://github.com/opencontainers/runc/releases/download/v1.2.6/runc.amd64 -o /tmp/runc.amd64
 pushd /tmp/
 sudo install -m 755 runc.amd64 /usr/local/sbin/runc
-curl -L https://github.com/containernetworking/plugins/releases/download/v1.6.2/cni-plugins-linux-amd64-v1.6.2.tgz -o cni-plugins-linux-amd64-v1.6.2.tgz
+
+
+if [ ! -f "/tmp/cni-plugins-linux-amd64-v1.6.2.tgz" ]; then
+    echo "Running download cache script"
+    /bin/bash /tmp/download-cache.sh
+fi
 sudo mkdir -p /opt/cni/bin
 sudo tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.6.2.tgz
 
@@ -62,9 +73,4 @@ sudo apt-get update
 sudo apt-get install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 sudo systemctl enable --now kubelet
-
-
-# Bash Helpers
-echo 'alias k=kubectl' >> ~/.bashrc
-echo 'complete -o default -F __start_kubectl k' >> ~/.bashrc
 
