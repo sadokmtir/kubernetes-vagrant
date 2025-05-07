@@ -9,7 +9,8 @@ Node1:
 Sets up Kubernetes dependencies
 Initializes the cluster
 Generates the join command and saves it to the shared folder
-Node2, Node 3:
+
+Node2, Node3:
 Sets up Kubernetes dependencies
 Waits for the join command to be available in the shared folder
 Executes the join command to join the cluster
