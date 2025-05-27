@@ -1,5 +1,3 @@
-# WIP
-
 ## How it works:
 The Vagrantfile creates three VMs (node1, node2 and node3) using libvirt provider.
 Both VMs share a two folders using NFS:

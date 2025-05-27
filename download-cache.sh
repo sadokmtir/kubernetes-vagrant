@@ -38,5 +38,3 @@ download_cached \
 # download_cached \
 #     "https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb" \
 #     "/tmp/k9s_linux_amd64.deb"
-
-    
